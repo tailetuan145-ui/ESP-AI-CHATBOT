@@ -1,7 +1,164 @@
-<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ESP AI CHATBOT - TRA NGHĨA</title><script src="../js/config.js"></script><script src="../js/bridge.js"></script><style>
-*{box-sizing:border-box}body{margin:0;padding:24px;background:#f8fafc;color:#0f172a;font:15px Arial,sans-serif}.panel{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:24px;max-width:950px;margin:auto}h2{margin:0 0 8px;color:#0f2942}p{color:#64748b;line-height:1.6}.search{display:flex;gap:10px;margin:22px 0}input{flex:1;min-width:0;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font:inherit}button{border:0;border-radius:12px;padding:12px 18px;background:#0f2942;color:#fff;font:inherit;cursor:pointer}button:disabled{opacity:.5}#searchStatus{color:#0f766e}#result{display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-top:20px}.term{font-size:30px;color:#0f2942;font-weight:700;margin-bottom:8px}.meaning{font-size:18px;font-weight:600;color:#0f766e}#example{border-left:3px solid #0d9488;padding:12px;margin-top:16px;white-space:pre-line}#vocabImage{max-width:320px;max-height:230px;object-fit:contain;display:none;margin:16px 0}@media(max-width:550px){.search{flex-direction:column}body{padding:12px}}
-</style></head><body><main class="panel"><h2>Tra nghĩa từ</h2><p>Tra cứu từ vựng tiếng Anh chuyên ngành, nghĩa và cách sử dụng bằng Dify AI.</p><form class="search" id="searchForm"><input id="searchInput" placeholder="Nhập từ vựng, ví dụ: vehicle" required><button id="searchBtn">Tra cứu AI</button></form><p id="searchStatus" aria-live="polite"></p><section id="result"><div class="term" id="word"></div><div id="ipa"></div><p class="meaning" id="meaning"></p><p id="meaningEn"></p><div id="example"></div><img id="vocabImage" alt="Hình minh họa từ vựng"></section></main><script>
-let meaningSessionToken=sessionStorage.getItem('dify_meaning_token')||'';
-const $=id=>document.getElementById(id);
-$('searchForm').addEventListener('submit',e=>{e.preventDefault();let word=$('searchInput').value.trim();if(!word)return;let btn=$('searchBtn');btn.disabled=true;$('searchStatus').textContent='Đang tra cứu...';google.script.run.withSuccessHandler(res=>{btn.disabled=false;$('searchStatus').textContent='';if(res.sessionToken){meaningSessionToken=res.sessionToken;sessionStorage.setItem('dify_meaning_token',meaningSessionToken)}let v=res.vocabulary||{};if(!v.word&&res.answer){try{v=JSON.parse(res.answer).vocabulary||JSON.parse(res.answer)}catch{v={word:word,meaning_vi:res.answer}}}const val=(...names)=>names.map(k=>v[k]).find(x=>typeof x==='string'&&x.trim())||'';$('word').textContent=val('word')||word;$('ipa').textContent=val('bre_ipa','ipa','pronunciation');$('meaning').textContent=val('meaning_vi','meaning');$('meaningEn').textContent=val('meaning_en','body_text');let ex=v.examples;$('example').textContent=Array.isArray(ex)?ex.map(x=>typeof x==='string'?x:JSON.stringify(x)).join('\n'):val('example_en','example');$('result').style.display='block';const img=$('vocabImage');img.style.display=res.imageDataUrl?'block':'none';if(res.imageDataUrl)img.src=res.imageDataUrl;}).withFailureHandler(err=>{btn.disabled=false;$('searchStatus').textContent='Lỗi: '+err.message}).lookupMeaningOrFlashcard({mode:'meaning',word,sessionToken:meaningSessionToken})});
-</script></body></html>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ESP AI CHATBOT - TRA NGHĨA</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/bridge.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;padding:24px;background:#f8fafc;color:#0f172a;font:15px Arial,sans-serif}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:24px;max-width:950px;margin:auto}
+    h2{margin:0 0 8px;color:#0f2942}
+    p{color:#64748b;line-height:1.6}
+    .search{display:flex;gap:10px;margin:22px 0}
+    input{flex:1;min-width:0;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font:inherit}
+    button{border:0;border-radius:12px;padding:12px 18px;background:#0f2942;color:#fff;font:inherit;cursor:pointer}
+    button:disabled{opacity:.5}
+    #searchStatus{color:#0f766e}
+    #result{display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-top:20px}
+    .term{font-size:30px;color:#0f2942;font-weight:700;margin-bottom:8px}
+    .meaning{font-size:18px;font-weight:600;color:#0f766e}
+    #example{border-left:3px solid #0d9488;padding:12px;margin-top:16px;white-space:pre-line}
+    #vocabImage{max-width:320px;max-height:230px;object-fit:contain;display:none;margin:16px 0}
+    #formattedAnswer{line-height:1.8;overflow-wrap:anywhere}
+    #formattedAnswer p{color:#334155;margin:0 0 12px}
+    #formattedAnswer strong{color:#0f2942}
+    #formattedAnswer ul,#formattedAnswer ol{padding-left:22px;margin:8px 0 16px}
+    #formattedAnswer li{margin:5px 0}
+    #formattedAnswer a{color:#0369a1;text-decoration:underline;overflow-wrap:anywhere}
+    #formattedAnswer img{display:block;max-width:100%;max-height:290px;object-fit:contain;border-radius:12px;margin:12px 0}
+    #formattedAnswer audio{max-width:100%;display:block;margin:10px 0}
+    #formattedAnswer h1,#formattedAnswer h2,#formattedAnswer h3{color:#0f2942}
+    @media(max-width:550px){.search{flex-direction:column}body{padding:12px}}
+  </style>
+</head>
+<body>
+<main class="panel">
+  <h2>Tra nghĩa từ</h2>
+  <p>Tra cứu từ vựng tiếng Anh chuyên ngành, nghĩa và cách sử dụng bằng Dify AI.</p>
+  <form class="search" id="searchForm">
+    <input id="searchInput" placeholder="Nhập từ vựng, ví dụ: vehicle" required>
+    <button id="searchBtn" type="submit">Tra cứu AI</button>
+  </form>
+  <p id="searchStatus" aria-live="polite"></p>
+  <section id="result">
+    <div class="term" id="word"></div>
+    <div id="structuredResult">
+      <div id="ipa"></div>
+      <p class="meaning" id="meaning"></p>
+      <p id="meaningEn"></p>
+      <div id="example"></div>
+      <img id="vocabImage" alt="Hình minh họa từ vựng">
+    </div>
+    <div id="formattedAnswer" hidden></div>
+  </section>
+</main>
+<script>
+'use strict';
+let meaningSessionToken = sessionStorage.getItem('dify_meaning_token') || '';
+const $ = id => document.getElementById(id);
+const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const pick = (obj, ...names) => names.map(k => obj[k]).find(x => typeof x === 'string' && x.trim()) || '';
+
+function normalizeDifyMarkdown(value) {
+  let s = String(value == null ? '' : value).trim();
+  // Một số câu trả lời bị bọc ** quanh toàn bộ nội dung.
+  if (/^\*\*[\s\S]*\*\*$/.test(s)) s = s.slice(2, -2).trim();
+  // Giải mã một lớp escape Markdown từ Dify, không biến HTML thành mã thực thi.
+  s = s.replace(/\\([*_`~\[\]()!])/g, '$1').replace(/\\&/g, '&');
+  // Chữa cú pháp liên kết lồng: [Label]([URL](URL)) => [Label](URL)
+  s = s.replace(/(!?\[[^\]\n]+\])\s*\(\s*\[(https?:\/\/[^\]\s]+)\]\((https?:\/\/[^\s)]+)\)\s*\)/g,
+    (_m, label, _displayUrl, href) => label + '(' + href + ')');
+  // Dify thỉnh thoảng trả toàn bộ nội dung trên một dòng. Ngắt trước các nhãn mục.
+  s = s.replace(/\s+(?=(?:🔤|🏷️|🔊|💡|📘|📝|🔗|🖼️)\s*\*\*)/g, '\n\n');
+  return s;
+}
+
+function displayMarkdown(answer) {
+  $('structuredResult').hidden = true;
+  $('formattedAnswer').hidden = false;
+  const cleaned = normalizeDifyMarkdown(answer);
+  if (!window.marked || !window.DOMPurify) {
+    $('formattedAnswer').textContent = cleaned;
+    return;
+  }
+  const html = marked.parse(cleaned, {gfm:true, breaks:true});
+  $('formattedAnswer').innerHTML = DOMPurify.sanitize(html);
+  $('formattedAnswer').querySelectorAll('a').forEach(a => {
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    // Nếu Dify xuất liên kết MP3, thêm bộ phát âm thanh ngay dưới liên kết.
+    try {
+      const url = new URL(a.href, location.href);
+      if (url.protocol === 'https:' && /\.mp3$/i.test(url.pathname)) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.preload = 'none';
+        audio.src = url.href;
+        a.insertAdjacentElement('afterend', audio);
+      }
+    } catch (_) {}
+  });
+}
+
+function displayStructured(v, word, imageDataUrl) {
+  $('structuredResult').hidden = false;
+  $('formattedAnswer').hidden = true;
+  $('formattedAnswer').replaceChildren();
+  $('word').textContent = pick(v,'word') || word;
+  $('ipa').textContent = pick(v,'bre_ipa','ipa','pronunciation');
+  $('meaning').textContent = pick(v,'meaning_vi','meaning');
+  $('meaningEn').textContent = pick(v,'meaning_en','body_text');
+  const ex = v.examples;
+  $('example').textContent = Array.isArray(ex)
+    ? ex.map(x => typeof x === 'string' ? x : [x.example_en,x.example_vi,x.sentence,x.translation].filter(Boolean).join(' — ')).join('\n')
+    : pick(v,'example_en','example');
+  const img = $('vocabImage');
+  img.style.display = imageDataUrl ? 'block' : 'none';
+  if (imageDataUrl) img.src = imageDataUrl;
+  else img.removeAttribute('src');
+}
+
+$('searchForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const word = $('searchInput').value.trim();
+  if (!word) return;
+  const btn = $('searchBtn');
+  btn.disabled = true;
+  $('searchStatus').textContent = 'Đang tra cứu...';
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false;
+      $('searchStatus').textContent = '';
+      res = res || {};
+      if (res.sessionToken) {
+        meaningSessionToken = res.sessionToken;
+        sessionStorage.setItem('dify_meaning_token', meaningSessionToken);
+      }
+      let v = isObject(res.vocabulary) ? res.vocabulary : {};
+      let answer = res.answer || res.rawAnswer || res.bodyText || '';
+      if (!Object.keys(v).length && answer) {
+        try {
+          const parsed = JSON.parse(answer);
+          v = isObject(parsed.vocabulary) ? parsed.vocabulary : (isObject(parsed) ? parsed : {});
+        } catch (_) {}
+      }
+      const structured = ['meaning_vi','meaning_en','ipa','bre_ipa','examples','example_en'].some(k => v[k]);
+      $('result').style.display = 'block';
+      $('word').textContent = pick(v,'word') || word;
+      if (structured) displayStructured(v, word, res.imageDataUrl);
+      else displayMarkdown(answer || pick(v,'meaning','meaning_vi') || 'Không có dữ liệu từ Dify.');
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false;
+      $('searchStatus').textContent = 'Lỗi: ' + (err && err.message ? err.message : 'Không thể tra cứu.');
+    })
+    .lookupMeaningOrFlashcard({mode:'meaning',word,sessionToken:meaningSessionToken});
+});
+</script>
+</body>
+</html>
