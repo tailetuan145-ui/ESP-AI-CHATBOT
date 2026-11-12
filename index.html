@@ -17,12 +17,12 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     /* Full viewport exclusively for Practice; other tabs retain their layout. */
-    body.practice-mode { height:100dvh; min-height:0; overflow:hidden; }
+    body.practice-mode { height:auto; min-height:100vh; overflow-x:hidden; overflow-y:auto; }
     body.practice-mode > header { flex:0 0 64px; }
-    body.practice-mode main { flex:1 1 auto; width:100%; max-width:none; min-height:0; padding:0; margin:0; }
-    body.practice-mode #view-practice { display:block; width:100%; height:100%; min-height:0; margin:0; padding:0; }
-    body.practice-mode #view-practice .practice-frame-wrap { width:100%; height:100%; min-height:0; margin:0; padding:0; border:0; border-radius:0; box-shadow:none; overflow:hidden; }
-    body.practice-mode #view-practice iframe { display:block; width:100%; height:100%; border:0; }
+    body.practice-mode main { flex:1 0 auto; width:100%; max-width:none; min-height:0; padding:0; margin:0; overflow:visible; }
+    body.practice-mode #view-practice { display:block; width:100%; height:auto; min-height:0; margin:0; padding:0; overflow:visible; }
+    body.practice-mode #view-practice .practice-frame-wrap { width:100%; height:auto; min-height:0; margin:0; padding:0; border:0; border-radius:0; box-shadow:none; overflow:visible; }
+    body.practice-mode #view-practice iframe { display:block; width:100%; height:1400px; min-height:calc(100vh - 64px); border:0; overflow:hidden; }
     .embedded-view { display:block; width:100%; height:100%; min-height:70vh; border:0; }
   </style>
 <link rel="stylesheet" href="css/bridge.css">
@@ -126,7 +126,7 @@
     <!-- 4. KHUNG LUYỆN TẬP (Practice.html) -->
     <section id="view-practice" class="view-panel hidden flex-1">
       <div class="practice-frame-wrap bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 min-h-[75vh]">
-        <iframe class="embedded-view" title="ESP Vocabulary Practice" src="components/practice.html" loading="lazy"></iframe>
+        <iframe class="embedded-view" title="ESP Vocabulary Practice" id="practiceIframe" src="components/practice.html" loading="lazy" scrolling="no"></iframe>
       </div>
     </section>
 
@@ -135,8 +135,28 @@
   <script>
     let routerSessionToken = sessionStorage.getItem('dify_router_token') || '';
 
+    // Resize Practice iframe to its actual content height: one browser scroll bar.
+    // Accept resize messages exclusively from our own embedded Practice page.
+    const practiceIframe = document.getElementById('practiceIframe');
+    window.addEventListener('message', function(event) {
+      if (!practiceIframe || event.source !== practiceIframe.contentWindow || event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || data.type !== 'ESP_PRACTICE_HEIGHT') return;
+      const height = Number(data.height);
+      if (!Number.isFinite(height) || height < 200 || height > 100000) return;
+      const nextHeight = Math.ceil(height + 3);
+      if (Math.abs(practiceIframe.getBoundingClientRect().height - nextHeight) > 3) {
+        practiceIframe.style.height = nextHeight + 'px';
+      }
+    });
+    practiceIframe.addEventListener('load', function () {
+      practiceIframe.contentWindow.postMessage({ type:'ESP_PRACTICE_MEASURE' }, window.location.origin);
+    });
+
+
     function switchView(viewName) {
       document.body.classList.toggle('practice-mode', viewName === 'practice');
+      if (viewName === 'practice') { window.scrollTo(0, 0); }
       document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
       document.getElementById('view-' + viewName).classList.remove('hidden');
 
