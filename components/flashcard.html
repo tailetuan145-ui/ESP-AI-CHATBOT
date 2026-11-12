@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  
+  <meta charset="UTF-8">
+  <title>ESP AI CHATBOT - FLASHCARD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    [hidden] {
+      display: none !important;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      background: #f0eaff;
+      color: #071e50;
+    }
+    main {
+      max-width: 1000px;
+      margin: auto;
+    }
+    h1 {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .intro {
+      text-align: center;
+      line-height: 1.5;
+      margin-top: 0;
+      color: #49258c;
+    }
+    /* Khung điều khiển gọi trực tiếp Dify + dán JSON */
+    .control-panel {
+      background: #ffffff;
+      border: 1px solid #dfd3ff;
+      border-radius: 20px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 14px rgba(136, 116, 186, 0.12);
+    }
+    .ai-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .ai-bar input {
+      flex: 1;
+      min-width: 240px;
+      padding: 12px 16px;
+      border: 1px solid #d8d0e7;
+      border-radius: 12px;
+      background: #fcfaff;
+      color: #102448;
+      font: inherit;
+      font-size: 16px;
+    }
+    .ai-bar input:focus {
+      outline: 2px solid #9850ee;
+      background: #fff;
+    }
+    .manual-toggle {
+      margin-top: 12px;
+      border-top: 1px dashed #e5dcfa;
+      padding-top: 10px;
+    }
+    .manual-toggle summary {
+      cursor: pointer;
+      color: #6b4ca5;
+      font-size: 14px;
+      font-weight: bold;
+      user-select: none;
+    }
+    textarea {
+      width: 100%;
+      height: 110px;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid #d8d0e7;
+      border-radius: 12px;
+      background: #fff;
+      color: #102448;
+      font: inherit;
+      resize: vertical;
+    }
+    button {
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 12px;
+      background: #8874ba;
+      color: #fff;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    button:hover:not(:disabled) {
+      background: #735da8;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    button:focus-visible,
+    .card:focus-visible {
+      outline: 3px solid #7300df;
+      outline-offset: 5px;
+    }
+    .btn-ai {
+      background: linear-gradient(120deg, #7c4dff, #9850ee);
+      white-space: nowrap;
+    }
+    .btn-ai:hover:not(:disabled) {
+      background: linear-gradient(120deg, #6937f5, #8338ec);
+    }
+    .load {
+      width: 100%;
+      margin-top: 10px;
+    }
+    #message {
+      min-height: 24px;
+      text-align: center;
+      line-height: 1.5;
+      font-weight: bold;
+    }
+    .scene {
+      perspective: 1600px;
+    }
+    .card {
+      position: relative;
+      width: 100%;
+      height: 740px;
+      transition: transform 0.55s;
+      transform-style: preserve-3d;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card.flipped {
+      transform: rotateY(180deg);
+    }
+    .face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #fff;
+      border-radius: 36px;
+      background: #fff;
+      box-shadow: 0 8px 24px #aa91eb55;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    .back {
+      transform: rotateY(180deg);
+    }
+    .topic {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      min-height: 88px;
+      padding: 24px 30px;
+      background: linear-gradient(120deg, #a28bc6, #b098d0);
+      color: #fff;
+      font-size: 27px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+    #frontFace .topic {
+      justify-content: flex-start;
+      text-align: left;
+    }
+    .picture {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px 30px 0;
+      background: linear-gradient(#fff, #fcfaff);
+    }
+    .picture img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    #noImage {
+      padding: 20px;
+      color: #76658f;
+      font-size: 18px;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .question {
+      flex-shrink: 0;
+      padding: 14px 20px;
+      color: #061c50;
+      font-size: clamp(34px, 6vw, 70px);
+      font-weight: bold;
+      line-height: 1.15;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+    .hint {
+      flex-shrink: 0;
+      padding: 18px 15px 24px;
+      color: #7300df;
+      font-size: 23px;
+      text-align: center;
+    }
+    .answer {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 35px;
+      overflow: auto;
+      cursor: auto;
+    }
+    .answer-content {
+      margin-block: auto;
+    }
+    .vocab-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      align-items: center;
+      gap: 30px;
+    }
+    .word-panel {
+      min-width: 0;
+      padding-right: 25px;
+      border-right: 2px solid #dfd3ff;
+    }
+    #word {
+      color: #071e50;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(44px, 7vw, 100px);
+      font-weight: bold;
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+    .word-details {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 25px;
+    }
+    #pos {
+      padding: 10px 22px;
+      border-radius: 50px;
+      background: #f0eaff;
+      color: #4a258b;
+      font-size: 22px;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+    .pronunciation-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 100%;
+      padding: 7px 14px;
+      border: 2px solid #b77aff;
+      border-radius: 50px;
+    }
+    #speak {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      padding: 3px 9px 3px 0;
+      border-right: 1px solid #dfd3ff;
+      border-radius: 0;
+      background: transparent;
+      color: #9850ee;
+    }
+    #speak svg {
+      width: 28px;
+      height: 28px;
+    }
+    #pronunciation {
+      min-width: 0;
+      font-size: 23px;
+      overflow-wrap: anywhere;
+    }
+    #meaning {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+      padding: 25px;
+      border-radius: 30px;
+      background: #f2ebff;
+      color: #7000c9;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: bold;
+      line-height: 1.3;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+    .example-block {
+      margin-top: 45px;
+      padding-top: 30px;
+      border-top: 2px solid #dfd3ff;
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      column-gap: 12px;
+      row-gap: 14px;
+      align-items: baseline;
+      text-align: left;
+    }
+    .example-label {
+      grid-column: 1;
+      grid-row: 1;
+      margin: 0;
+      white-space: nowrap;
+      color: #7000c9;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      font-weight: bold;
+      line-height: 1.4;
+      text-decoration: underline;
+    }
+    .example-en {
+      grid-column: 2;
+      grid-row: 1;
+      min-width: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 30px;
+      line-height: 1.5;
+      text-align: left;
+      overflow-wrap: anywhere;
+    }
+    #exampleVi {
+      grid-column: 2;
+      grid-row: 2;
+      min-width: 0;
+      margin-top: 0;
+      color: #49258c;
+      font-size: 30px;
+      line-height: 1.5;
+      text-align: left;
+      overflow-wrap: anywhere;
+    }
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    #counter {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .instructions {
+      text-align: center;
+      line-height: 1.5;
+      margin: 12px 0 20px;
+      font-size: 18px;
+    }
+    .translate-instructions {
+      display: inline-block;
+      width: auto;
+      margin-left: 8px;
+      padding: 4px 8px;
+      background: transparent;
+      color: #7000c9;
+      font: inherit;
+      text-decoration: underline;
+      vertical-align: baseline;
+    }
+    #instructionVi {
+      display: block;
+      margin-top: 8px;
+      color: #49258c;
+    }
+    /* Updated back design */
+    #backFace .topic { gap: 26px; background: linear-gradient(120deg, #a98bd7, #9d7ed0); }
+    #backFace .topic::before, #backFace .topic::after {
+      content: ""; width: 85px; max-width: 14%; height: 2px; background: #fff;
+    }
+    #backFace .answer { position: relative; padding-top: 95px; }
+    #backFace .answer::before,
+    #backFace .answer::after {
+      content: "";
+      position: absolute;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 116 52'%3E%3Cpath fill='%23eee5ff' d='M1 51C1 37 12 27 25 31C28 14 40 2 57 2C74 2 87 14 90 31C104 24 115 36 115 51Z'/%3E%3C/svg%3E") center / contain no-repeat;
+      pointer-events: none;
+    }
+    #backFace .answer::before { left: 25px; top: 8px; width: 116px; height: 52px; }
+    #backFace .answer::after { left: 130px; top: 55px; width: 94px; height: 42px; }
+    #backFace .word-panel { border-color: #b77aff; }
+    #backFace #pos { color: #7000c9; }
+    #backFace #meaning { background: linear-gradient(135deg, #f4edff, #eee5fc); }
+    #backFace .example-block {
+      border: 0; border-radius: 26px; background: #f0e8fc;
+      padding: 25px 28px; margin-top: 30px;
+    }
+    #backFace #exampleVi { font-family: Georgia, "Times New Roman", serif; color: #7000c9; }
+    #backFace .example-label { font-family: Georgia, "Times New Roman", serif; }
+    .download-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 18px; }
+    #downloadStatus { text-align: center; line-height: 1.5; }
+
+    /* Fixed ratio 1000 × 605 viewport scaling */
+    #study .scene { width: 100%; height: 605px; }
+    #study .card-viewport { width: 1000px; height: 605px; transform-origin: top left; }
+    #study .card { width: 1000px; height: 605px; }
+    #study .face { border-radius: 36px; }
+    #study .topic { min-height: 88px; padding: 24px 30px; font-size: 27px; letter-spacing: 4px; }
+    #study .picture { padding: 22px 30px 0; }
+    #study .question { font-size: 60px; padding: 14px 20px; }
+    #study .hint { padding: 12px 15px 18px; font-size: 21px; }
+    #study #backFace > .hint { display: none; }
+    #study #backFace .answer { padding: 110px 35px 20px; }
+    #study .answer-content { margin: 0; }
+    #study .vocab-grid { grid-template-columns: 1.1fr 1fr; gap: 30px; height: 180px; }
+    #study .word-panel { padding-right: 25px; border-right: 2px solid #b77aff; text-align: left; height: 180px; }
+    #study #word { font-size: 115px; line-height: 1.05; max-height: 125px; overflow-wrap: anywhere; }
+    #study .word-details { justify-content: flex-start; gap: 10px; margin-top: 12px; }
+    #study #pos { padding: 8px 20px; font-size: 22px; }
+    #study #pronunciation { font-size: 23px; }
+    #study #meaning { min-height: 180px; height: 180px; padding: 20px; font-size: 48px; line-height: 1.25; }
+    #study #backFace .example-block { margin-top: 50px; padding: 20px 25px; height: 150px; column-gap: 12px; row-gap: 8px; grid-template-rows: 1fr 1fr; }
+    #study .example-en, #study #exampleVi { font-size: 30px; line-height: 1.35; }
+    #study .example-label { font-size: 25px; }
+    #study #backFace .answer::before { left: 25px; top: 8px; width: 116px; height: 52px; }
+    #study #backFace .answer::after { left: 130px; top: 55px; width: 94px; height: 42px; }
+    #study .download-actions { justify-content: flex-start; margin: 0 0 12px; }
+    #downloadFront, #downloadBack { background: #245a8d; color: #fff; }
+    #downloadFront:hover:not(:disabled), #downloadBack:hover:not(:disabled) { background: #1a456f; }
+
+    #study #backFace #exampleVi {
+      font-family: Arial, Tahoma, "Segoe UI", sans-serif;
+      font-style: normal;
+      letter-spacing: normal;
+      font-variant-ligatures: none;
+    }
+    #example strong, #exampleVi strong {
+      font-weight: 700;
+      font-style: italic;
+    }
+    #study #backFace .answer::before,
+    #study #backFace .answer::after {
+      animation: cloud-pair-drift 20s linear infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes cloud-pair-drift {
+      0% { transform: translateX(0); opacity: 1; }
+      75% { transform: translateX(750px); opacity: 1; }
+      82% { transform: translateX(820px); opacity: 0; }
+      82.01% { transform: translateX(-180px); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      h1 { font-size: 21px; }
+      .ai-bar input, .ai-bar button { width: 100%; }
+      .download-actions button { font-size: 14px; }
+      nav button { padding: 12px; font-size: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .card, #study #backFace .answer::before, #study #backFace .answer::after {
+        transition: none;
+        animation: none;
+      }
+    }
+  </style>
+<script src="../js/config.js"></script><script src="../js/bridge.js"></script>
+</head>
+<body>
+  <main>
+    <h1>📘 ESP AI CHATBOT - FLASHCARD</h1>
+    <p class="intro">
+      Nhập từ vựng hoặc chủ đề để tạo bộ thẻ từ Dify AI, hoặc dán JSON có sẵn.
+    </p>
+
+    <div class="control-panel">
+      <!-- Thanh gõ từ hoặc chủ đề gọi trực tiếp Dify -->
+      <div class="ai-bar">
+        <input
+          id="aiPromptInput"
+          type="text"
+          placeholder="Nhập từ vựng hoặc chủ đề (VD: vehicle, licence plate, traffic...)"
+          aria-label="Nhập từ vựng hoặc chủ đề tạo Flashcard" />
+        <button id="askDifyBtn" class="btn-ai" type="button">
+          ✨ Tạo Flashcard
+        </button>
+      </div>
+
+      <!-- Khung dán JSON thủ công -->
+      <details class="manual-toggle" id="manualDetails">
+        <summary>📋 Dán dữ liệu JSON từ Dify thủ công</summary>
+        <textarea
+          id="input"
+          placeholder='Dán JSON tại đây (ví dụ: {"cards": [...]})...'
+          aria-label="Dữ liệu flashcard"
+          spellcheck="false"></textarea>
+        <button class="load" id="load" type="button">
+          Mở bộ flashcard từ JSON
+        </button>
+      </details>
+    </div>
+
+    <p id="message" role="status" aria-live="polite"></p>
+
+    <div class="instructions" id="instructions" hidden>
+      <span lang="en">Click the card to flip it (or press Space/Enter). Use ← / → keys to switch cards. Click the speaker icon to hear the pronunciation.</span>
+      <button class="translate-instructions" id="translateInstructions" type="button"
+        lang="en" aria-controls="instructionVi" aria-expanded="false">Translate</button>
+      <span id="instructionVi" lang="vi" hidden>Bấm vào thẻ (hoặc nhấn phím Cách/Enter) để lật. Dùng phím mũi tên ← / → để chuyển thẻ. Bấm biểu tượng loa để nghe phát âm.</span>
+    </div>
+
+    <section id="study" hidden aria-label="Bộ thẻ từ vựng">
+      <div class="download-actions" aria-label="Download flashcard images">
+        <button id="downloadFront" type="button">↓ Download front (PNG)</button>
+        <button id="downloadBack" type="button">↓ Download back (PNG)</button>
+      </div>
+      <div class="scene" id="cardScene">
+        <div class="card-viewport" id="cardViewport">
+          <div
+            class="card"
+            id="card"
+            tabindex="0"
+            role="group"
+            aria-label="Flashcard. Bấm hoặc nhấn Enter để lật thẻ.">
+            <!-- MẶT TRƯỚC -->
+            <div class="face" id="frontFace">
+              <div class="topic" id="topic"></div>
+              <div class="picture">
+                <img id="image" alt="Hình minh hoạ từ vựng" hidden>
+                <span id="noImage">Chưa có hình minh hoạ</span>
+              </div>
+              <div class="question" id="question"></div>
+              <div class="hint">Tap to reveal</div>
+            </div>
+            <!-- MẶT SAU -->
+            <div
+              class="face back"
+              id="backFace"
+              aria-hidden="true"
+              inert>
+              <div class="topic">VOCABULARY</div>
+              <div class="answer">
+                <div class="answer-content">
+                  <div class="vocab-grid">
+                    <div class="word-panel">
+                      <div id="word"></div>
+                      <div class="word-details">
+                        <div id="pos"></div>
+                        <div class="pronunciation-pill">
+                          <button
+                            id="speak"
+                            type="button"
+                            tabindex="-1"
+                            aria-label="Nghe phát âm"
+                            title="Nghe phát âm">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true">
+                              <path
+                                d="M11 5 6 9H3v6h3l5 4V5Z"
+                                fill="currentColor"
+                                stroke="none"></path>
+                              <path d="M15 8a6 6 0 0 1 0 8"></path>
+                              <path d="M18 5a10 10 0 0 1 0 14"></path>
+                            </svg>
+                          </button>
+                          <span id="pronunciation"></span>
+                        </div>
+                      </div>
+                    </div>
+                    <div id="meaning"></div>
+                  </div>
+                  <div class="example-block" id="exampleBlock">
+                    <div class="example-label" id="exampleLabel">Example:</div>
+                    <div class="example-en" id="exampleEnRow">
+                      <span id="example"></span>
+                    </div>
+                    <div id="exampleVi" lang="vi"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="hint">Tap to return</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <nav aria-label="Chuyển thẻ">
+        <button id="previous" type="button">← Previous</button>
+        <span id="counter" aria-live="polite"></span>
+        <button id="next" type="button">Next →</button>
+      </nav>
+      <p id="downloadStatus" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+    let cards = [];
+    let index = 0;
+    let imageRequest = 0;
+    let difySessionToken = sessionStorage.getItem('dify_flashcard_token') || '';
+
+    const el = id => document.getElementById(id);
+    const asText = value =>
+      typeof value === 'string' ? value.normalize('NFC').trim() : '';
+
+    function setText(id, value) {
+      el(id).textContent = asText(value);
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
+    function stopSpeech() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function setFlipped(value) {
+      const faceToHide = value ? el('frontFace') : el('backFace');
+      if (faceToHide.contains(document.activeElement)) {
+        el('card').focus({ preventScroll: true });
+      }
+      el('card').classList.toggle('flipped', value);
+      el('frontFace').setAttribute('aria-hidden', String(value));
+      el('backFace').setAttribute('aria-hidden', String(!value));
+      el('frontFace').inert = value;
+      el('backFace').inert = !value;
+      el('speak').tabIndex = value ? 0 : -1;
+      if (!value) {
+        stopSpeech();
+      }
+    }
+
+    const cardImages = new WeakMap();
+
+    function loadImageElement(url, cors) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        if (cors) img.crossOrigin = 'anonymous';
+        const timer = setTimeout(() => {
+          img.onload = img.onerror = null;
+          reject(new Error('Quá thời gian tải hình minh hoạ.'));
+        }, 15000);
+        img.onload = () => { clearTimeout(timer); resolve(img); };
+        img.onerror = () => { clearTimeout(timer); reject(new Error('Không tải được hình minh hoạ.')); };
+        img.src = url;
+      });
+    }
+
+    function resolveCardImage(item) {
+      if (cardImages.has(item)) return cardImages.get(item);
+      const task = (async () => {
+        const front = item.front || {}, back = item.back || {};
+        const sourceId = asText(item.source_id) || asText(front.source_id) || asText(back.source_id);
+        const word = asText(back.word) || asText(item.answer_key);
+        const hasServer = window.google && google.script && google.script.run;
+        let driveError = '';
+        if (hasServer && (sourceId || word)) {
+          try {
+            const dataUrl = await new Promise((resolve, reject) => {
+              google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)
+                .getVocabularyImage(sourceId, word);
+            });
+            if (typeof dataUrl !== 'string' || !/^data:image\/(png|jpeg|webp|gif);base64,/i.test(dataUrl)) {
+              throw new Error('Máy chủ trả về dữ liệu ảnh không hợp lệ.');
+            }
+            return await loadImageElement(dataUrl, false);
+          } catch (error) {
+            driveError = error && error.message ? error.message : 'Không lấy được ảnh Drive.';
+          }
+        }
+        try {
+          const url = new URL(asText(front.image_url));
+          if (url.protocol === 'https:') return await loadImageElement(url.href, false);
+        } catch (_) {}
+        throw new Error(driveError || (hasServer
+          ? 'Chưa có hình minh hoạ phù hợp trong danh mục hoặc đường dẫn ảnh.'
+          : 'Mở trang qua Google Apps Script Web App để lấy ảnh Drive, hoặc cung cấp image_url HTTPS.'));
+      })();
+      cardImages.set(item, task);
+      task.catch(() => { if (cardImages.get(item) === task) cardImages.delete(item); });
+      return task;
+    }
+
+    function loadPicture(item) {
+      const request = ++imageRequest;
+      const picture = el('image');
+      picture.hidden = true;
+      picture.removeAttribute('src');
+      el('noImage').hidden = false;
+      el('noImage').textContent = 'Đang tải hình minh hoạ…';
+      resolveCardImage(item).then(img => {
+        if (request !== imageRequest) return;
+        picture.src = img.src;
+        picture.hidden = false;
+        el('noImage').hidden = true;
+      }).catch(error => {
+        if (request !== imageRequest) return;
+        picture.hidden = true;
+        el('noImage').hidden = false;
+        el('noImage').textContent = error.message || 'Không tải được hình minh hoạ.';
+      });
+    }
+
+    function updateCardLayout() {
+      const scene = el('cardScene');
+      if (!scene.clientWidth) return;
+      const scale = Math.min(1, scene.clientWidth / 1000);
+      el('cardViewport').style.transform = `scale(${scale})`;
+      scene.style.height = `${605 * scale}px`;
+
+      const word = el('word');
+      let size = 115;
+      word.style.fontSize = `${size}px`;
+      while (size > 24 && (word.scrollHeight > 125 || word.scrollWidth > word.clientWidth)) {
+        word.style.fontSize = `${--size}px`;
+      }
+
+      const meaning = el('meaning');
+      size = 48; meaning.style.fontSize = `${size}px`;
+      while (size > 18 && meaning.scrollHeight > meaning.clientHeight) {
+        meaning.style.fontSize = `${--size}px`;
+      }
+
+      for (const id of ['exampleEnRow', 'exampleVi']) {
+        const node = el(id);
+        size = 30; node.style.fontSize = `${size}px`;
+        while (size > 14 && (node.scrollHeight > 52 || node.scrollWidth > node.clientWidth)) {
+          node.style.fontSize = `${--size}px`;
+        }
+      }
+    }
+
+    function showCard() {
+      setFlipped(false);
+      const item = cards[index];
+      const front = item.front || {};
+      const back = item.back || {};
+      const word = asText(back.word) || asText(item.answer_key);
+      const pos = asText(back.part_of_speech);
+      const pronunciation = asText(back.pronunciation);
+      const meaning = asText(back.meaning_vi);
+      const exampleEn = asText(back.example_en);
+      const exampleVi = asText(back.example_vi);
+
+      setText('topic', asText(front.topic) || 'TRAFFIC & VEHICLES');
+      setText('question', asText(front.question) || 'What is this?');
+      setText('word', word);
+      setText('pos', pos);
+      setText('pronunciation', pronunciation);
+      setText('meaning', meaning);
+      highlightText('example', exampleEn, word);
+      highlightText('exampleVi', exampleVi, vietnameseTarget(exampleVi, meaning));
+      el('downloadStatus').textContent = '';
+
+      el('pos').hidden = !pos;
+      el('pronunciation').hidden = !pronunciation;
+      el('meaning').hidden = !meaning;
+      el('exampleLabel').hidden = !exampleEn && !exampleVi;
+      el('exampleEnRow').hidden = !exampleEn;
+      el('exampleVi').hidden = !exampleVi;
+      el('exampleBlock').hidden = !exampleEn && !exampleVi;
+      el('speak').disabled = !word;
+      el('speak').setAttribute(
+        'aria-label',
+        word ? 'Nghe phát âm: ' + word : 'Nghe phát âm'
+      );
+      el('counter').textContent = `${index + 1} / ${cards.length}`;
+      el('previous').disabled = index === 0;
+      el('next').disabled = index === cards.length - 1;
+      el('image').alt = asText(front.image_alt) || 'Hình minh hoạ từ vựng';
+      loadPicture(item);
+      updateCardLayout();
+    }
+
+    function extractCardsFromResponse(rawString) {
+      let cleaned = String(rawString || '')
+        .trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/, '');
+
+      if (!cleaned) {
+        throw new Error('Bạn chưa nhập dữ liệu JSON.');
+      }
+
+      let data = null;
+      try {
+        data = JSON.parse(cleaned);
+      } catch (_) {
+        const matchObj = cleaned.match(/\{[\s\S]*\}/);
+        if (matchObj) {
+          data = JSON.parse(matchObj[0]);
+        } else {
+          throw new Error('Dữ liệu trả về không đúng định dạng JSON.');
+        }
+      }
+
+      const cardList = Array.isArray(data) ? data : (data && Array.isArray(data.cards) ? data.cards : null);
+
+      if (!cardList || cardList.length === 0) {
+        throw new Error('Dữ liệu phải có mảng "cards" và ít nhất một thẻ.');
+      }
+
+      cardList.forEach((card, position) => {
+        if (!card || typeof card !== 'object' || Array.isArray(card) || !card.front || typeof card.front !== 'object') {
+          throw new Error(`Thẻ số ${position + 1} cần có đối tượng "front" hợp lệ.`);
+        }
+        if (card.back != null && (typeof card.back !== 'object' || Array.isArray(card.back))) {
+          throw new Error(`Trường "back" của thẻ số ${position + 1} phải là đối tượng.`);
+        }
+      });
+
+      return cardList;
+    }
+
+    function renderDeck(rawJsonText) {
+      el('instructions').hidden = true;
+      el('instructionVi').hidden = true;
+      el('translateInstructions').setAttribute('aria-expanded', 'false');
+      try {
+        const parsedCards = extractCardsFromResponse(rawJsonText);
+        stopSpeech();
+        cards = parsedCards;
+        index = 0;
+        el('study').hidden = false;
+        el('message').textContent = '';
+        el('instructions').hidden = false;
+        showCard();
+      } catch (error) {
+        stopSpeech();
+        imageRequest++;
+        el('study').hidden = true;
+        el('message').textContent = 'Không mở được bộ thẻ: ' + error.message;
+      }
+    }
+
+    el('translateInstructions').onclick = () => {
+      const translation = el('instructionVi');
+      translation.hidden = !translation.hidden;
+      el('translateInstructions').setAttribute('aria-expanded', String(!translation.hidden));
+    };
+
+    el('load').onclick = () => {
+      renderDeck(el('input').value);
+    };
+
+    // Gọi trực tiếp hàm indexSend trong IndexRouter.gs khi gõ từ/chủ đề
+    el('askDifyBtn').onclick = () => {
+      const rawInput = el('aiPromptInput').value.trim();
+      if (!rawInput) {
+        el('message').textContent = 'Vui lòng nhập từ vựng hoặc chủ đề trước khi bấm Tạo.';
+        el('aiPromptInput').focus();
+        return;
+      }
+      if (!(window.google && google.script && google.script.run)) {
+        el('message').textContent = 'Tính năng gọi Dify trực tiếp chỉ hoạt động khi mở qua link Google Apps Script Web App.';
+        return;
+      }
+
+      // Nếu người dùng chỉ gõ từ/chủ đề ngắn, tự động thêm ngữ cảnh yêu cầu tạo flashcard
+      const queryText = /flashcard|thẻ/i.test(rawInput)
+        ? rawInput
+        : `Tạo flashcard cho: ${rawInput}`;
+
+      el('askDifyBtn').disabled = true;
+      el('message').textContent = 'Đang kết nối Dify AI để tạo bộ thẻ Flashcard…';
+
+      google.script.run
+        .withSuccessHandler(res => {
+          el('askDifyBtn').disabled = false;
+          if (res && res.sessionToken) {
+            difySessionToken = res.sessionToken;
+            sessionStorage.setItem('dify_flashcard_token', difySessionToken);
+          }
+          if (res && res.answer) {
+            el('input').value = res.answer;
+            renderDeck(res.answer);
+          }
+        })
+        .withFailureHandler(err => {
+          el('askDifyBtn').disabled = false;
+          el('message').textContent = 'Lỗi gọi Dify: ' + (err && err.message ? err.message : err);
+        })
+        .indexSend({
+          message: queryText,
+          sessionToken: difySessionToken
+        });
+    };
+
+    el('aiPromptInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        el('askDifyBtn').click();
+      }
+    });
+
+    function flip() {
+      setFlipped(!el('card').classList.contains('flipped'));
+    }
+
+    el('card').onclick = event => {
+      if (event.target.closest('button')) return;
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) return;
+      flip();
+    };
+
+    el('card').onkeydown = event => {
+      if (event.target !== el('card')) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        flip();
+      }
+    };
+
+    document.addEventListener('keydown', event => {
+      if (el('study').hidden) return;
+      const tag = document.activeElement ? document.activeElement.tagName : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (event.key === 'ArrowLeft' && index > 0) {
+        event.preventDefault();
+        index--;
+        showCard();
+      } else if (event.key === 'ArrowRight' && index < cards.length - 1) {
+        event.preventDefault();
+        index++;
+        showCard();
+      }
+    });
+
+    el('speak').onclick = event => {
+      event.stopPropagation();
+      const word = el('word').textContent.trim();
+      if (!word) return;
+      if (!('speechSynthesis' in window)) {
+        el('message').textContent =
+          'Trình duyệt này chưa hỗ trợ đọc từ. Bạn thử mở bằng Chrome nhé.';
+        return;
+      }
+      stopSpeech();
+      const speech = new SpeechSynthesisUtterance(word);
+      speech.lang = 'en-GB';
+      speech.rate = 0.85;
+      speech.pitch = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const voice =
+        voices.find(v => /^en[-_]GB$/i.test(v.lang)) ||
+        voices.find(v => /^en\b/i.test(v.lang));
+      if (voice) {
+        speech.voice = voice;
+      }
+      speech.onerror = event => {
+        if (event.error !== 'interrupted' && event.error !== 'canceled') {
+          el('message').textContent =
+            'Chưa phát được âm thanh. Bạn thử bấm nút loa lần nữa.';
+        }
+      };
+      window.speechSynthesis.speak(speech);
+    };
+
+    el('previous').onclick = () => {
+      if (index > 0) {
+        index--;
+        showCard();
+      }
+    };
+
+    el('next').onclick = () => {
+      if (index < cards.length - 1) {
+        index++;
+        showCard();
+      }
+    };
+
+    function vietnameseTarget(text, meaning) {
+      const lower = text.toLocaleLowerCase('vi');
+      if (meaning && lower.includes(meaning.toLocaleLowerCase('vi'))) return meaning;
+      const words = meaning.match(/[\p{L}\p{M}]+/gu) || [];
+      for (let length = words.length - 1; length >= 2; length--) {
+        for (let start = 0; start + length <= words.length; start++) {
+          const phrase = words.slice(start, start + length).join(' ');
+          if (lower.includes(phrase.toLocaleLowerCase('vi'))) return phrase;
+        }
+      }
+      return '';
+    }
+
+    function highlightText(id, text, target) {
+      const node = el(id);
+      node.replaceChildren();
+      const start = target ? text.toLocaleLowerCase().indexOf(target.toLocaleLowerCase()) : -1;
+      if (start < 0) { node.textContent = text; return; }
+      node.append(document.createTextNode(text.slice(0, start)));
+      const bold = document.createElement('strong');
+      bold.textContent = text.slice(start, start + target.length);
+      node.append(bold, document.createTextNode(text.slice(start + target.length)));
+    }
+
+    function drawCloud(ctx, x, y, width, height) {
+      ctx.save();
+      ctx.translate(x, y); ctx.scale(width / 116, height / 52);
+      ctx.beginPath(); ctx.moveTo(1, 51);
+      ctx.bezierCurveTo(1, 37, 12, 27, 25, 31);
+      ctx.bezierCurveTo(28, 14, 40, 2, 57, 2);
+      ctx.bezierCurveTo(74, 2, 87, 14, 90, 31);
+      ctx.bezierCurveTo(104, 24, 115, 36, 115, 51);
+      ctx.closePath(); ctx.fillStyle = '#eee5ff'; ctx.fill(); ctx.restore();
+    }
+
+    function roundedBox(ctx, x, y, w, h, radius, fill) {
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, radius);
+      ctx.fillStyle = fill; ctx.fill();
+    }
+
+    function wrappedLines(ctx, text, maxWidth) {
+      const lines = [];
+      for (const paragraph of String(text).split('\n')) {
+        let line = '';
+        for (const word of paragraph.split(/\s+/)) {
+          if (!word) continue;
+          if (ctx.measureText(line ? line + ' ' + word : word).width <= maxWidth) {
+            line += (line ? ' ' : '') + word;
+          } else {
+            if (line) lines.push(line);
+            line = '';
+            for (const char of word) {
+              if (line && ctx.measureText(line + char).width > maxWidth) {
+                lines.push(line); line = '';
+              }
+              line += char;
+            }
+          }
+        }
+        lines.push(line);
+      }
+      return lines;
+    }
+
+    function fittedText(ctx, text, x, y, width, height, size, minSize, color, family, bold, align, emphasis = '') {
+      if (!text) return;
+      text = text.replace(/\s+/g, ' ').trim();
+      let lines, step;
+      do {
+        ctx.font = `${bold || emphasis ? 'bold ' : ''}${emphasis ? 'italic ' : ''}${size}px ${family}`;
+        lines = wrappedLines(ctx, text, width); step = size * 1.3;
+        if (lines.length * step <= height) break;
+        size--;
+      } while (size >= minSize);
+      if (lines.length * step > height) throw new Error('Nội dung quá dài để xuất ảnh đầy đủ. Hãy rút gọn nội dung thẻ.');
+      ctx.fillStyle = color; ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle';
+      const top = y + (height - lines.length * step) / 2 + step / 2;
+      const emphasisStart = emphasis ? text.toLocaleLowerCase().indexOf(emphasis.toLocaleLowerCase()) : -1;
+      let cursor = 0;
+      lines.forEach((line, n) => {
+        const lineStart = text.indexOf(line, cursor);
+        cursor = lineStart + line.length;
+        const from = Math.max(0, emphasisStart - lineStart);
+        const to = Math.min(line.length, emphasisStart + emphasis.length - lineStart);
+        if (emphasisStart < 0 || from >= to) {
+          ctx.font = `${bold ? 'bold ' : ''}${size}px ${family}`;
+          ctx.fillText(line, x, top + n * step); return;
+        }
+        const parts = [[line.slice(0, from), bold, false], [line.slice(from, to), true, true], [line.slice(to), bold, false]];
+        let left = x;
+        for (const [part, heavy, italic] of parts) {
+          ctx.font = `${heavy ? 'bold ' : ''}${italic ? 'italic ' : ''}${size}px ${family}`;
+          ctx.fillText(part, left, top + n * step);
+          left += ctx.measureText(part).width;
+        }
+      });
+    }
+
+    async function exportFlashcard(side) {
+      if (!cards.length) return;
+      const item = cards[index], cardNumber = index + 1;
+      const front = item.front || {}, back = item.back || {};
+      const word = asText(back.word) || asText(item.answer_key);
+      const buttons = [el('downloadFront'), el('downloadBack')];
+      buttons.forEach(button => button.disabled = true);
+      el('downloadStatus').textContent = 'Đang tạo ảnh PNG…';
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1000; canvas.height = 605;
+        const ctx = canvas.getContext('2d');
+        ctx.save(); ctx.beginPath(); ctx.roundRect(0, 0, 1000, 605, 36); ctx.clip();
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 1000, 605);
+        const gradient = ctx.createLinearGradient(0, 0, 1000, 88);
+        gradient.addColorStop(0, '#a98bd7'); gradient.addColorStop(1, '#9d7ed0');
+        ctx.fillStyle = gradient; ctx.fillRect(0, 0, 1000, 88);
+        let missingImage = false;
+        if (side === 'back') {
+          fittedText(ctx, 'V O C A B U L A R Y', 500, 14, 700, 60, 27, 18, '#fff', 'Arial', true, 'center');
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(180,44); ctx.lineTo(270,44); ctx.moveTo(730,44); ctx.lineTo(820,44); ctx.stroke();
+          drawCloud(ctx, 25, 96, 116, 52);
+          drawCloud(ctx, 130, 143, 94, 42);
+          ctx.save(); ctx.translate(0, -20);
+          ctx.strokeStyle = '#b77aff'; ctx.beginPath(); ctx.moveTo(500,225); ctx.lineTo(500,405); ctx.stroke();
+          fittedText(ctx, word, 35, 210, 435, 150, 115, 24, '#071e50', 'Georgia', true);
+          const pos = asText(back.part_of_speech), pronunciation = asText(back.pronunciation);
+          if (pos) {
+            roundedBox(ctx, 35, 355, 110, 45, 27, '#f0e8fc');
+            fittedText(ctx, pos, 90, 355, 100, 45, 23, 12, '#7000c9', 'Arial', true, 'center');
+          }
+          if (pronunciation) {
+            roundedBox(ctx, 160, 355, 260, 45, 27, '#f4efff');
+            fittedText(ctx, pronunciation, 290, 355, 240, 45, 25, 12, '#071e50', 'Arial', false, 'center');
+          }
+          roundedBox(ctx, 530, 225, 425, 180, 30, '#f0e8fc');
+          fittedText(ctx, asText(back.meaning_vi), 742, 235, 380, 160, 48, 16, '#7000c9', 'Georgia', true, 'center');
+          ctx.restore();
+          const en = asText(back.example_en), vi = asText(back.example_vi);
+          if (en || vi) {
+            roundedBox(ctx, 35, 435, 930, 150, 26, '#f0e8fc');
+            fittedText(ctx, 'Example:', 60, 450, 125, 50, 25, 20, '#7000c9', 'Georgia', true);
+            fittedText(ctx, en, 190, 450, 745, vi ? 55 : 115, 30, 14, '#071e50', 'Georgia', false, 'left', word);
+            if (vi) fittedText(ctx, vi, 190, 515, 745, 55, 30, 14, '#7000c9', 'Arial, Tahoma, sans-serif', false, 'left', vietnameseTarget(vi, asText(back.meaning_vi)));
+          }
+        } else {
+          fittedText(ctx, asText(front.topic) || 'TRAFFIC & VEHICLES', 35, 10, 930, 68, 27, 16, '#fff', 'Arial', true);
+          try {
+            let img = await resolveCardImage(item);
+            if (!img.src.startsWith('data:image/')) {
+              img = await loadImageElement(img.src, true);
+            }
+            const scale = Math.min(900 / img.naturalWidth, 320 / img.naturalHeight);
+            const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+            ctx.drawImage(img, (1000-w)/2, 110+(320-h)/2, w, h);
+          } catch (_) { missingImage = true; }
+          if (missingImage) fittedText(ctx, 'Hình minh hoạ không khả dụng khi tải ảnh.', 500, 240, 850, 100, 24, 18, '#76658f', 'Arial', false, 'center');
+          fittedText(ctx, asText(front.question) || 'What is this?', 500, 465, 920, 105, 60, 18, '#071e50', 'Arial', true, 'center');
+        }
+        ctx.restore();
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Không tạo được ảnh PNG.');
+        const link = document.createElement('a'), objectUrl = URL.createObjectURL(blob);
+        link.href = objectUrl;
+        const name = (word || 'flashcard').normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 60);
+        link.download = `flashcard-${cardNumber}-${name}-${side}.png`;
+        document.body.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+        el('downloadStatus').textContent = missingImage
+          ? 'Đã tạo ảnh PNG nhưng thiếu hình minh hoạ vì nguồn ảnh không cho phép tải hoặc ảnh không khả dụng.'
+          : 'Đã tạo ảnh PNG. Nếu trình duyệt mở ảnh, hãy chọn lưu ảnh về máy.';
+      } catch (error) {
+        el('downloadStatus').textContent = 'Không tải được ảnh: ' + error.message;
+      } finally {
+        buttons.forEach(button => button.disabled = false);
+      }
+    }
+
+    el('downloadFront').onclick = () => exportFlashcard('front');
+    el('downloadBack').onclick = () => exportFlashcard('back');
+    window.addEventListener('resize', updateCardLayout);
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(updateCardLayout).observe(el('cardScene'));
+    }
+    if (document.fonts) document.fonts.ready.then(updateCardLayout);
+    window.addEventListener('pagehide', stopSpeech);
+  </script>
+</body>
+</html>

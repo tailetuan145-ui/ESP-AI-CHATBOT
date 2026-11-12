@@ -1,0 +1,5 @@
+.embedded-view { width: 100%; min-height: 78vh; border: 0; border-radius: 16px; display: block; background: white; }
+#view-flashcard .embedded-view { min-height: 1000px; }
+#view-practice .embedded-view { min-height: 860px; }
+#view-meaning .embedded-view { min-height: 700px; }
+@media (max-width: 700px) { .embedded-view { min-height: 850px; } #view-flashcard .embedded-view { min-height: 1100px; } }

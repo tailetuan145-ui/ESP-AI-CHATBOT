@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>ESP AI CHATBOT - Vocabulary Practice</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+<style>
+  :root { --purple: #542a80; --accent: #602496; --light: #e9e0f5; --line: #cdc0e8; --ink: #171735; }
+  body { margin: 0; padding: 20px; background: #edf3f1; font-family: Arial, sans-serif; color: #183e43; }
+  .practice-container { max-width: 720px; margin: auto; background: #fff; border: 1px solid #d2e3e3; border-radius: 24px; overflow: hidden; box-shadow: 0 12px 35px #174c4c12; }
+  .top { background: #d8eee7; padding: 22px 28px; border-bottom: 1px solid #b9dcd0; text-align: center; }
+  .top h2 { font-size: 25px; margin: 12px 0 8px; color: #103b46; font-weight: 700; }
+  .content { padding: 24px; background: #f3fffb; }
+  .practice-context { display: grid; gap: 14px; margin-bottom: 20px; }
+  .practice-context label { display: grid; gap: 6px; font-size: 14px; font-weight: 700; color: #244c4c; text-align: left; }
+  .practice-context input, .practice-context textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #b5d1c5; border-radius: 9px; background: white; color: #183e43; font: inherit; }
+  
+  /* Bảng chọn dạng bài (Practice Type Tiles) */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .choice { background: #e1f3ee; border: 1px solid #b5dcd0; border-radius: 13px; padding: 14px; text-align: left; color: #244c4c; display: flex; align-items: center; gap: 10px; min-height: 64px; font-size: 14px; cursor: pointer; transition: background 0.16s; }
+  .choice:hover { background: #d5eee6; }
+  .choice[aria-pressed="true"] { background: #67c4ad; border-color: #247f69; color: #103f35; font-weight: bold; box-shadow: inset 0 0 0 1px #247f69; }
+  
+  .foot { padding: 18px 24px; background: #e0f4ef; border-top: 1px solid #beded2; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .go { border: 0; border-radius: 11px; background: #008a7d; color: #fff; padding: 13px 22px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 8px #006b6730; }
+  .go:disabled { opacity: 0.5; cursor: not-allowed; }
+  
+  /* Khung hiển thị kết quả bài tập */
+  .output-box { margin-top: 20px; padding: 20px; background: #fff; border: 1px solid #d5e4e2; border-radius: 16px; line-height: 1.6; }
+  .prose p { margin-bottom: 0.75rem; }
+  .prose img { max-width: 100%; border-radius: 10px; margin: 10px 0; }
+  [hidden] { display: !important; }
+</style>
+<script src="../js/config.js"></script><script src="../js/bridge.js"></script>
+</head>
+<body>
+
+<div class="practice-container">
+  <div class="top">
+    <h2>🎯 Luyện Tập Từ Vựng Chuyên Ngành</h2>
+    <p class="text-sm text-slate-600">Chọn dạng bài tập mong muốn và nhập chủ đề hoặc từ vựng mục tiêu để Dify AI tạo bài tập trực tiếp.</p>
+  </div>
+
+  <div class="content">
+    <!-- Khung nhập chủ đề / từ vựng -->
+    <div class="practice-context">
+      <label>
+        Chủ đề bài tập (VD: Traffic rules, Emergency response...):
+        <input id="practiceTopic" type="text" placeholder="Nhập chủ đề..." />
+      </label>
+      <label>
+        Từ vựng mục tiêu (Tùy chọn, cách nhau bằng dấu phẩy):
+        <textarea id="practiceWords" rows="2" placeholder="vehicle, traffic, licence plate..."></textarea>
+      </label>
+    </div>
+
+    <!-- Bảng chọn dạng bài (Practice Type Selection) -->
+    <div class="group-title font-bold text-teal-800 mb-2">Chọn các dạng bài luyện tập:</div>
+    <div class="choices" id="typeChoices">
+      <button type="button" class="choice" data-type="1" aria-pressed="false"><span class="ico">📝</span><span class="label">Trắc nghiệm (Multiple Choice)</span></button>
+      <button type="button" class="choice" data-type="2" aria-pressed="false"><span class="ico">🔗</span><span class="label">Ghép từ – Định nghĩa (Matching)</span></button>
+      <button type="button" class="choice" data-type="3" aria-pressed="false"><span class="ico">✏️</span><span class="label">Điền vào chỗ trống (Gap Fill)</span></button>
+      <button type="button" class="choice" data-type="4" aria-pressed="false"><span class="ico">🧩</span><span class="label">Kết hợp từ (Collocation)</span></button>
+      <button type="button" class="choice" data-type="5" aria-pressed="false"><span class="ico">🎯</span><span class="label">Chọn từ theo ngữ cảnh</span></button>
+      <button type="button" class="choice" data-type="6" aria-pressed="false"><span class="ico">📦</span><span class="label">Bài tập tổng hợp (Mixed)</span></button>
+      <button type="button" class="choice" data-type="7" aria-pressed="false"><span class="ico">🎧</span><span class="label">Luyện nghe (Listening)</span></button>
+      <button type="button" class="choice" data-type="8" aria-pressed="false"><span class="ico">🗣️</span><span class="label">Luyện nói (Speaking)</span></button>
+      <button type="button" class="choice" data-type="9" aria-pressed="false"><span class="ico">📖</span><span class="label">Luyện đọc (Reading)</span></button>
+      <button type="button" class="choice" data-type="10" aria-pressed="false"><span class="ico">✍️</span><span class="label">Luyện viết (Writing)</span></button>
+      <button type="button" class="choice col-span-2" data-type="11" aria-pressed="false"><span class="ico">✨</span><span class="label">Để chatbot tự chọn dạng phù hợp</span></button>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span id="practiceStatus" class="text-xs text-teal-700 font-medium">Chưa chọn dạng bài nào.</span>
+    <button id="startPracticeBtn" class="go" type="button" disabled>Bắt đầu tạo bài tập</button>
+  </div>
+
+  <!-- Khu vực xuất trực tiếp kết quả từ Dify AI -->
+  <div id="practiceOutputBox" class="output-box hidden">
+    <div id="practiceContent" class="prose text-slate-800"></div>
+    <!-- Ô nhập phản hồi tiếp theo nếu là chat tương tác -->
+    <div class="mt-4 pt-4 border-t border-slate-200 flex gap-2">
+      <input id="practiceReplyInput" type="text" placeholder="Nhập đáp án hoặc câu trả lời của bạn..." class="flex-1 p-2 border border-teal-300 rounded-lg text-sm" />
+      <button id="practiceReplyBtn" class="bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-bold" type="button">Gửi trả lời</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  'use strict';
+  let practiceSessionToken = sessionStorage.getItem('dify_practice_token') || '';
+  let selectedTypes = [];
+
+  // Xử lý chọn/bỏ chọn các nút dạng bài (Tiles)
+  document.querySelectorAll('.choice').forEach(btn => {
+    btn.onclick = () => {
+      const typeId = parseInt(btn.getAttribute('data-type'));
+      const isPressed = btn.getAttribute('aria-pressed') === 'true';
+
+      if (typeId === 11 || typeId === 6) {
+        // Nếu chọn tự chọn hoặc tổng hợp, reset các nút khác
+        document.querySelectorAll('.choice').forEach(b => {
+          b.setAttribute('aria-pressed', 'false');
+        });
+        selectedTypes = [typeId];
+        btn.setAttribute('aria-pressed', 'true');
+      } else {
+        // Nếu chọn các dạng thường, bỏ chọn 6 và 11 nếu đang bật
+        document.querySelectorAll('.choice[data-type="6"], .choice[data-type="11"]').forEach(b => {
+          b.setAttribute('aria-pressed', 'false');
+        });
+
+        if (isPressed) {
+          btn.setAttribute('aria-pressed', 'false');
+          selectedTypes = selectedTypes.filter(t => t !== typeId);
+        } else {
+          btn.setAttribute('aria-pressed', 'true');
+          selectedTypes.push(typeId);
+        }
+      }
+
+      updatePracticeState();
+    };
+  });
+
+  function updatePracticeState() {
+    const btn = document.getElementById('startPracticeBtn');
+    const status = document.getElementById('practiceStatus');
+    if (selectedTypes.length > 0) {
+      btn.disabled = false;
+      status.textContent = `Đã chọn ${selectedTypes.length} dạng bài tập.`;
+    } else {
+      btn.disabled = true;
+      status.textContent = 'Vui lòng chọn ít nhất một dạng bài tập.';
+    }
+  }
+
+  // Bấm nút bắt đầu tạo bài tập
+  document.getElementById('startPracticeBtn').onclick = () => {
+    const topic = document.getElementById('practiceTopic').value.trim();
+    const words = document.getElementById('practiceWords').value.trim();
+    const status = document.getElementById('practiceStatus');
+    
+    if (!topic && !words) {
+      status.textContent = '⚠️ Vui lòng nhập chủ đề hoặc từ vựng mục tiêu!';
+      document.getElementById('practiceTopic').focus();
+      return;
+    }
+
+    const startBtn = document.getElementById('startPracticeBtn');
+    startBtn.disabled = true;
+    status.textContent = '⏳ Đang kết nối Dify AI để sinh bài tập...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        startBtn.disabled = false;
+        status.textContent = '✅ Đã tạo bài tập thành công!';
+        if (res && res.sessionToken) {
+          practiceSessionToken = res.sessionToken;
+          sessionStorage.setItem('dify_practice_token', practiceSessionToken);
+        }
+        
+        // Hiển thị nội dung trực tiếp từ Dify
+        displayPracticeAnswer(res.answer);
+      })
+      .withFailureHandler(err => {
+        startBtn.disabled = false;
+        status.textContent = '❌ Lỗi: ' + (err.message || err);
+      })
+      .generatePractice({
+        selectedTypes: selectedTypes,
+        topic: topic,
+        words: words
+      });
+  };
+
+  function displayPracticeAnswer(answerText) {
+    const box = document.getElementById('practiceOutputBox');
+    const content = document.getElementById('practiceContent');
+    content.innerHTML = DOMPurify.sanitize(marked.parse(answerText || 'Không có nội dung phản hồi.'));
+    box.classList.remove('hidden');
+  }
+
+  // Gửi câu trả lời tiếp theo trong phiên luyện tập
+  document.getElementById('practiceReplyBtn').onclick = () => {
+    const replyInput = document.getElementById('practiceReplyInput');
+    const message = replyInput.value.trim();
+    if (!message) return;
+
+    replyInput.value = '';
+    const status = document.getElementById('practiceStatus');
+    status.textContent = '⏳ Đang gửi câu trả lời cho Dify AI...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        status.textContent = '✅ Đã nhận phản hồi từ AI!';
+        displayPracticeAnswer(res.answer);
+      })
+      .withFailureHandler(err => {
+        status.textContent = '❌ Lỗi gửi phản hồi: ' + (err.message || err);
+      })
+      .replyPractice({
+        message: message,
+        sessionToken: practiceSessionToken
+      });
+  };
+</script>
+</body>
+</html>
