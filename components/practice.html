@@ -373,12 +373,12 @@
     window.setPracticeContext=setContext;
     if(window.PRACTICE_CONTEXT)setContext(window.PRACTICE_CONTEXT);
     function update(){
-      stage.querySelectorAll('[data-item]').forEach(b=>{const i=Number(b.dataset.item),yes=selected.has(i);const exclusive=selected.has(5)?5:(selected.has(10)?10:null);b.disabled=busy||(exclusive!==null&&exclusive!==i);b.setAttribute('aria-pressed',String(yes));b.querySelector('.tick').textContent=yes?'✓':'';});
+      stage.querySelectorAll('[data-item]').forEach(b=>{const i=Number(b.dataset.item),yes=selected.has(i);b.disabled=busy;b.setAttribute('aria-pressed',String(yes));b.querySelector('.tick').textContent=yes?'✓':'';});
       const count=stage.querySelector('.count');count.replaceChildren(document.createTextNode('Đã chọn '),el('strong',String(selected.size)),document.createTextNode(' dạng bài'));
       const chips=stage.querySelector('.selected-chips');chips.replaceChildren();selected.forEach(i=>{const b=el('button',undefined,'selection-chip cursor-interaction');b.type='button';b.disabled=busy;b.setAttribute('aria-label','Bỏ chọn '+labels[i]);const icon=el('span',i===3?'🔗':undefined,'chip-icon sprite sprite-'+i);icon.setAttribute('aria-hidden','true');b.append(icon,el('span',labels[i]),el('span','×','chip-close'));b.onclick=()=>{selected.delete(i);update();};chips.append(b);});
       go.disabled=busy;words.disabled=busy;topic.disabled=busy;go.textContent=busy?'Đang tạo bài…':'Bắt đầu luyện tập →';
     }
-    function make(i){const b=el('button',undefined,'choice cursor-interaction'+(i===10?' auto':''));b.type='button';b.dataset.item=i;const icon=el('span',i===3?'🔗':undefined,'ico sprite sprite-'+i);icon.setAttribute('aria-hidden','true');b.append(icon,el('span',labels[i],'label'),el('span','','tick'));b.onclick=()=>{if(selected.has(i))selected.delete(i);else{if(i===5||i===10)selected.clear();selected.add(i);}status.textContent='';update();};return b;}
+    function make(i){const b=el('button',undefined,'choice cursor-interaction'+(i===10?' auto':''));b.type='button';b.dataset.item=i;const icon=el('span',i===3?'🔗':undefined,'ico sprite sprite-'+i);icon.setAttribute('aria-hidden','true');b.append(icon,el('span',labels[i],'label'),el('span','','tick'));b.onclick=()=>{if(selected.has(i)){selected.delete(i);}else{if(i===5||i===10){selected.clear();}else{selected.delete(5);selected.delete(10);}selected.add(i);}status.textContent='';update();};return b;}
     stage.querySelectorAll('[data-items]').forEach(grid=>grid.dataset.items.split(',').forEach(i=>grid.append(make(Number(i)))));stage.querySelector('[data-auto]').append(make(10));
     function setBusy(value){busy=value;update();output.querySelectorAll('button,input,textarea,select').forEach(n=>{n.disabled=value||(completed&&!!n.closest('.exercise-section, .exercise-submit'));});}
     // The current Apps Script returns {answer, sessionToken}; the original mockup
@@ -562,5 +562,47 @@
 #practice-designs .navy-jewel .skill-grid .choice,#practice-designs .navy-jewel .auto{border-color:#b5d1c5;background-color:#f1f7f3}
 #practice-designs .navy-jewel .skill-grid .choice[aria-pressed="true"],#practice-designs .navy-jewel .auto[aria-pressed="true"]{background-color:#deeee4;border-color:#44866c;box-shadow:inset 0 0 0 1px #44866c}
 </style>
+
+<style id="practice-scroll-fix">
+/* The parent page owns scrolling; avoid nested scrollbars and 100vh feedback loops. */
+html, body { height:auto!important; min-height:0!important; overflow-x:hidden; overflow-y:visible; }
+#practice-designs, #practice-designs.practice-export { min-height:0!important; height:auto!important; overflow:visible!important; }
+#practice-designs .stage { min-height:0!important; height:auto!important; overflow:visible!important; }
+#practice-designs .app { min-height:0!important; height:auto!important; }
+</style>
+<script id="practice-iframe-autosize">
+(function(){
+  'use strict';
+  let scheduled = false;
+  function measure() {
+    scheduled = false;
+    const root = document.getElementById('practice-designs');
+    if (!root || window.parent === window) return;
+    // Geometry of rendered content, independent of the iframe's viewport height.
+    const bottom = root.getBoundingClientRect().bottom + window.scrollY;
+    const height = Math.ceil(Math.max(bottom, document.body.scrollHeight, 300));
+    window.parent.postMessage({type:'ESP_PRACTICE_HEIGHT', height:height}, window.location.origin);
+  }
+  function schedule() {
+    if(scheduled)return;
+    scheduled=true;
+    requestAnimationFrame(measure);
+  }
+  window.addEventListener('load', schedule);
+  window.addEventListener('resize', schedule);
+  window.addEventListener('message', event => {
+    if(event.origin === window.location.origin && event.data?.type === 'ESP_PRACTICE_MEASURE') schedule();
+  });
+  if(typeof ResizeObserver !== 'undefined') {
+    const root = document.getElementById('practice-designs');
+    if(root) new ResizeObserver(schedule).observe(root);
+  }
+  const root = document.getElementById('practice-designs');
+  if(root && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(schedule).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
+  }
+  schedule();
+})();
+</script>
 </body>
 </html>
