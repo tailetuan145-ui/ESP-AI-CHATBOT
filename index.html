@@ -143,6 +143,19 @@
       input.focus();
     }
 
+function normalizeDifyMarkdown(value) {
+  let text = String(value ?? '');
+
+  // Xử lý trường hợp Dify trả về Markdown bị escape
+  // Ví dụ: \*\*Word:\*\* thành **Word:**
+  text = text.replace(/\\([*_`~[\]()])/g, '$1');
+
+  // Xử lý dấu & bị escape trong URL
+  text = text.replace(/\\&/g, '&');
+
+  return text;
+}
+
     function appendRouterBubble(text, isUser = false, isError = false) {
       const box = document.getElementById('routerChatBox');
       const wrap = document.createElement('div');
@@ -157,8 +170,22 @@
         bubble.textContent = text;
       } else {
         bubble.className = 'bg-slate-100/80 text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 text-sm max-w-[85%] prose';
-        bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
-      }
+<CodeBlock language="javascript" editable>
+const markdown = normalizeDifyMarkdown(text);
+
+const html = marked.parse(markdown, {
+  breaks: true,
+  gfm: true
+});
+
+bubble.innerHTML = DOMPurify.sanitize(html);
+
+// Các liên kết mở trong tab mới
+bubble.querySelectorAll('a').forEach(link => {
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+});
+</CodeBlock>      }
 
       wrap.appendChild(bubble);
       box.appendChild(wrap);
