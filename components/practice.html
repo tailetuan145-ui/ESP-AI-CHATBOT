@@ -33,6 +33,34 @@
 #practice-designs .exercise-submit:disabled{opacity:.55;cursor:not-allowed}
 </style><script src="../js/config.js"></script>
 <script src="../js/bridge.js"></script>
+
+<!-- Full viewport fit: override the original max-width, margins, and padding.
+     Keep the original design, selection logic, images and API bridge unchanged. -->
+<style id="practice-fullscreen-layout">
+  html, body { margin:0 !important; padding:0 !important; min-height:100%; width:100%; }
+  html { overflow-x:hidden; }
+  body { background:#edf3f1; overflow-x:hidden; }
+  #practice-designs, #practice-designs.practice-export { width:100%; max-width:none; min-height:100dvh; margin:0; padding:0; }
+  #practice-designs .stage, #practice-designs .stage.tiles,
+  #practice-designs .stage.navy-jewel { width:100%; max-width:none; min-height:100dvh; margin:0; padding:0; }
+  #practice-designs .app, #practice-designs .tiles .app,
+  #practice-designs .compact .app, #practice-designs .navy-jewel .app {
+    width:100%; max-width:none; min-height:100dvh; margin:0; padding:0;
+    border:0; border-radius:0; box-shadow:none;
+  }
+  #practice-designs .top { border-radius:0; }
+  #practice-designs .content { width:100%; max-width:none; padding:24px clamp(16px, 4vw, 72px); }
+  #practice-designs .practice-context { width:100%; }
+  #practice-designs .practice-output { padding:24px clamp(16px, 4vw, 72px); }
+  #practice-designs .foot { margin-left:clamp(12px, 3vw, 48px); margin-right:clamp(12px, 3vw, 48px); }
+  #practice-designs .choices { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  @media (max-width:650px) {
+    #practice-designs .choices { grid-template-columns:1fr; }
+    #practice-designs .skill-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    #practice-designs .content { padding:16px; }
+    #practice-designs .practice-output { padding:16px; }
+  }
+</style>
 </head>
 <body>
 <div id="practice-designs" class="practice-export" aria-label="Ba phiên bản cải thiện mẫu xanh đậm" data-previous-label="Mẫu trước" data-next-label="Mẫu sau"><style>
