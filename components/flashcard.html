@@ -798,44 +798,59 @@
       updateCardLayout();
     }
 
-    function extractCardsFromResponse(rawString) {
-      let cleaned = String(rawString || '')
-        .trim()
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```$/, '');
-
-      if (!cleaned) {
-        throw new Error('Bạn chưa nhập dữ liệu JSON.');
-      }
-
-      let data = null;
-      try {
-        data = JSON.parse(cleaned);
-      } catch (_) {
-        const matchObj = cleaned.match(/\{[\s\S]*\}/);
-        if (matchObj) {
-          data = JSON.parse(matchObj[0]);
-        } else {
-          throw new Error('Dữ liệu trả về không đúng định dạng JSON.');
+    // Dify đôi khi trả JSON nằm trong ```json, chuỗi JSON lồng hoặc output wrapper.
+    // Không biến đoạn giải thích tự do thành thẻ giả.
+    function extractCardsFromResponse(rawInput) {
+      const parseText = (text) => {
+        const cleaned = String(text || '').trim().replace(/^\uFEFF/, '')
+          .replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+        if (!cleaned) throw new Error('Dify chưa trả nội dung bộ thẻ.');
+        try { return JSON.parse(cleaned); } catch (_) {}
+        const codeBlocks = [...cleaned.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+        for (const block of codeBlocks) {
+          try { return JSON.parse(block[1].trim()); } catch (_) {}
         }
+        // Cố gắng tìm JSON hoàn chỉnh mà không nuốt phần văn bản Markdown.
+        for (const pair of [['{', '}'], ['[', ']']]) {
+          const start = cleaned.indexOf(pair[0]);
+          const end = cleaned.lastIndexOf(pair[1]);
+          if (start !== -1 && end > start) {
+            try { return JSON.parse(cleaned.slice(start, end + 1)); } catch (_) {}
+          }
+        }
+        throw new Error('Dify trả về văn bản thay vì JSON cards. Cần kiểm tra cấu hình đầu ra Flashcard trong Dify.');
+      };
+      let data = typeof rawInput === 'string' ? parseText(rawInput) : rawInput;
+      for (let depth = 0; depth < 4; depth++) {
+        if (typeof data === 'string') { data = parseText(data); continue; }
+        if (Array.isArray(data) || (data && Array.isArray(data.cards))) break;
+        if (!data || typeof data !== 'object') break;
+        const inner = data.answer ?? data.output ?? data.result ?? data.data ?? data.text;
+        if (inner == null) break;
+        data = inner;
       }
-
-      const cardList = Array.isArray(data) ? data : (data && Array.isArray(data.cards) ? data.cards : null);
-
+      const cardList = Array.isArray(data) ? data : data && Array.isArray(data.cards) ? data.cards : null;
       if (!cardList || cardList.length === 0) {
-        throw new Error('Dữ liệu phải có mảng "cards" và ít nhất một thẻ.');
+        throw new Error('Dify chưa trả mảng "cards". Hãy yêu cầu workflow xuất JSON đúng schema.');
       }
-
-      cardList.forEach((card, position) => {
-        if (!card || typeof card !== 'object' || Array.isArray(card) || !card.front || typeof card.front !== 'object') {
-          throw new Error(`Thẻ số ${position + 1} cần có đối tượng "front" hợp lệ.`);
+      return cardList.map((item, position) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item))
+          throw new Error('Thẻ số ' + (position + 1) + ' không phải đối tượng hợp lệ.');
+        // Hỗ trợ schema chuẩn hiện tại và schema từ/ví dụ đơn giản.
+        if (item.front && typeof item.front === 'object' && !Array.isArray(item.front)) {
+          return {...item, back: (item.back && typeof item.back === 'object' && !Array.isArray(item.back)) ? item.back : {}};
         }
-        if (card.back != null && (typeof card.back !== 'object' || Array.isArray(card.back))) {
-          throw new Error(`Trường "back" của thẻ số ${position + 1} phải là đối tượng.`);
+        const word = String(item.word || item.term || item.vocabulary || '').trim();
+        const meaning = String(item.meaning_vi || item.meaning || item.definition_vi || '').trim();
+        if (word && meaning) {
+          return {
+            source_id: String(item.source_id || ''), answer_key: word,
+            front: {topic: String(item.topic || 'VOCABULARY'), question: String(item.question || 'What is this?'), image_url: String(item.image_url || '')},
+            back: {word, meaning_vi: meaning, part_of_speech: String(item.part_of_speech || ''), pronunciation: String(item.pronunciation || ''), example_en: String(item.example_en || ''), example_vi: String(item.example_vi || '')}
+          };
         }
+        throw new Error('Thẻ số ' + (position + 1) + ' thiếu front/back hoặc word/meaning_vi.');
       });
-
-      return cardList;
     }
 
     function renderDeck(rawJsonText) {
@@ -882,10 +897,17 @@
         return;
       }
 
-      // Nếu người dùng chỉ gõ từ/chủ đề ngắn, tự động thêm ngữ cảnh yêu cầu tạo flashcard
-      const queryText = /flashcard|thẻ/i.test(rawInput)
-        ? rawInput
-        : `Tạo flashcard cho: ${rawInput}`;
+      // Yêu cầu phản hồi JSON khớp cấu trúc mà giao diện lật thẻ đang dùng.
+      const queryText = [
+        'NHIỆM VỤ: Tạo 3 đến 6 flashcard từ vựng tiếng Anh chuyên ngành cho: ' + rawInput,
+        'CHỈ TRẢ JSON hợp lệ, không giải thích, không Markdown, không dùng ```json.',
+        'Cấu trúc bắt buộc: {"cards":[{"source_id":"", "answer_key":"traffic",',
+        '"front":{"topic":"TRAFFIC & VEHICLES","question":"What is this?","image_url":""},',
+        '"back":{"word":"traffic","part_of_speech":"noun","pronunciation":"/ˈtræfɪk/",',
+        '"meaning_vi":"giao thông; xe cộ", "example_en":"Heavy traffic causes delays.",',
+        '"example_vi":"Giao thông đông đúc gây chậm trễ."}}]}',
+        'Mỗi thẻ có từ và nghĩa thực tế đúng chủ đề. Không thêm nội dung ngoài JSON.'
+      ].join('\n');
 
       el('askDifyBtn').disabled = true;
       el('message').textContent = 'Đang kết nối Dify AI để tạo bộ thẻ Flashcard…';
@@ -897,9 +919,12 @@
             difySessionToken = res.sessionToken;
             sessionStorage.setItem('dify_flashcard_token', difySessionToken);
           }
-          if (res && res.answer) {
-            el('input').value = res.answer;
-            renderDeck(res.answer);
+          if (res && res.answer != null) {
+            const answer = typeof res.answer === 'string' ? res.answer : JSON.stringify(res.answer);
+            el('input').value = answer;
+            renderDeck(answer);
+          } else {
+            el('message').textContent = 'Dify không trả nội dung Flashcard.';
           }
         })
         .withFailureHandler(err => {
